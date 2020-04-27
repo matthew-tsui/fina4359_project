@@ -1,0 +1,265 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+library(portsort)
+library(PerformanceAnalytics)
+library(xts)
+require(data.table)  # read in pandas-type data frame
+require(dplyr)  # for syntax
+require(feather) # to read in feather files
+require(ggplot2) # for making pretty graphs
+require(RcppRoll) # for creating lag/rolling
+require(lubridate) # for manipulating dates
+require(jtools)
+library(rlang)
+library(stargazer)
+#library(Hmisc)
+library(pastecs)
+library(psych)
+library(scales)
+```
+
+
+```{r}
+# set scienfic notation to decimals
+options(scipen = 999)
+options(warn=-1)
+
+# ff data
+df_rf <- read.csv('F-F_Research_Data_Factors_daily.CSV', skip=4)
+df_rf$X = ymd(df_rf$X)
+names(df_rf)[names(df_rf) == "X"] <- "Date"
+df_rf
+
+# coin data
+df = read.csv('consolidated_coin_data.csv')
+df$Date = mdy(df$Date)
+# set dt as datatable
+setDT(df)
+
+# reading btc data
+# df_btc <- read.csv('Bitcoin Historical Data - 2011 - 2019v2.csv', stringsAsFactors=FALSE)
+# df_btc2 <- read.csv('bitcoin-price (1).csv')
+df_btc2 <- read.csv('coindesk-btc-price.csv')
+df_btc2
+df_btc2$Date = ymd(df_btc2$Date) 
+names(df_btc2)[names(df_btc2) == "Price"] <- "Close"
+# rename Price to column
+#df_btc <- df_btc %>% rename(Close = Price)
+# names(df_btc)[names(df_btc) == "Price"] <- "Close"
+# parse date
+
+# df_btc$Date = mdy(df_btc$Date) 
+# #df_btc$Date = ymd(df_btc$Date) 
+# setDT(df_btc)
+# #qplot(Date,ret*100, data = df_btc, geom="line") + scale_x_date(labels = date_format("%m-%Y")) + ylim(min(df1$ret*100),max(df1$ret*100)+100)
+# df_btc[, Close:=as.numeric(gsub(',','',Close))]
+# df_btc[, Open:=as.numeric(gsub(',','',Open))]
+# df_btc[, High:=as.numeric(gsub(',','',High))]
+# df_btc[, Low:=as.numeric(gsub(',','',Low))]
+# df_btc[, Currency:='bitcoin']
+# df_btc <- df_btc[,!c('Change..','Vol.')]
+# df_btc
+# df_btc <- subset(df_btc, Date >= as.Date('2011-1-1'))
+# #df1 <- join(df, df_btc, by=c('Currency'))
+# #df1 %>% filter(Currency=='bitcoin') %>% arrange(Date)
+# df1
+# describe(df_btc)
+
+#is.na(df1[,Date])
+# parse the date to date format
+
+df_btc <- df_btc2 %>% arrange(Date)
+df_btc <- subset(df_btc, Date >= as.Date('2011-1-1'))
+df_btc
+```
+
+
+```{r}
+currencies <- unique(df$Currency)
+currencies2 = c('bitcoin')
+#currencies2 = c('bitcoin', 'ripple', 'ethereum', 'binance-coin' ,'eos','tether', 'bitcoin-cash', 'stellar', 'litecoin', 'cardano')
+currencies3 = c('binance-coin' ,'eos','tether', 'bitcoin-cash', 'stellar', 'litecoin','ethereum', 'cardano')
+plots = list()
+
+for (j in 1:length(currencies2)){
+
+  #df1 <- df%>% filter(Currency == 'ripple')
+  if (currencies2[j] == 'bitcoin'){
+    df1 <- df_btc
+  }else {
+    df1 <- df%>% filter(Currency == currencies2[j])
+  }
+  
+  data.table(min(df1$Date),max(df1$Date))
+  
+  # set date as key field
+  df1= data.table(df1, key=c('Date'))
+  
+  # set upper range
+  df1 <- subset(df1, Date <= as.Date('2018-5-31')) 
+
+  # create close price lag 1
+  df1[, Close_lag1:=shift(Close, n=1, fill=NA, type='lag')]
+  
+  # return = (price of t/ price of t-1) -1
+  df1[, plot_ret:= ((Close/Close_lag1)-1)]
+  df1[, ret:= ((Close/Close_lag1)-1)]
+  df1
+  
+  
+  # Figure A.1
+  plot <- qplot(Date,ret*100, data = df1, geom="line", main=currencies2[j]) + scale_x_date(labels = date_format("%m-%Y")) + ylim(min(df1$ret*100),max(df1$ret*100)+100)
+  plots[[j]] = plot
+  print(paste(mean(df1$ret, na.rm=TRUE) ,sd(df1$ret, na.rm=TRUE)))
+  
+  
+  # Table 14, 18 - daily momentum
+  # create lead and lag
+  for (i in 1:7){
+    #df1[, paste('rf_lead',paste(i),sep=""):=shift(rf, n=i, fill = NA, type='lead')]
+    df1[, paste('ret_lead',paste(i),sep=""):=shift(ret, n=i, fill = NA, type='lead')]
+    #df1[, paste('ret_lag',paste(i),sep=""):=shift(ret, n=i, fill = NA, type='lag')]
+    
+  }
+  
+  # generate formula
+  model_results1 = list()
+  for (i in 1:7){
+    #f <- as.formula(paste('ret ~ ret_lead',paste(i), sep=""))
+    #f <- as.formula(paste('(ret_lead',paste(i), '- rf_lead',paste(i) ,')~ ret', sep=""))
+    f <- as.formula(paste('ret_lead',paste(i) ,'~ ret', sep=""))
+    m = lm(f, data= df1)
+    model_results1[[i]] = m
+  }
+  
+  # print daily return
+  stargazer(model_results1, type='text', header=F,
+            title=paste(currencies2[j],'Daily Return (', paste(min(df1$Date)),'-',paste(max(df1$Date)),')'),
+            omit.stat = c('LL','ser','f'),
+            #t = list(NULL, sqrt(1)),
+            covariate.labels =c('R(t)'),
+            dep.var.labels=c('R(t+1)', 'R(t+2)', 'R(t+3)', 'R(t+4)','R(t+5)','R(t+6)', 'R(t+7)'),
+            omit='Constant',
+            report = 'vc*t')
+  names(model_results1)
+  
+  # Table 14 - bitcoin weekly
+  df1 <- mutate(day = wday(Date), .data= df1)
+  df1 <- mutate(week = cut.Date(Date+1, breaks='1 week', label=FALSE),.data=df1)
+  
+  df1
+  df1[,Close_lead1w:=shift(Close, n=7, fill = NA, type='lead')]
+  
+  # set 1 week lag
+  df1[,Close_lag1w:=shift(Close, n=7, fill = NA, type='lag')]
+  
+  df1[,weekly_ret:=((Close/Close_lag1w)-1)]
+  print(paste(mean(df1$weekly_ret, na.rm=TRUE) ,sd(df1$weekly_ret, na.rm=TRUE)))
+  
+   for (i in 1:4){
+    df1[, paste('weekly_ret_lead',paste(i),sep=""):=shift(weekly_ret, n=i*7, fill = NA, type='lead')]
+    #df_weekly[, paste('ret_lag',paste(i),sep=""):=shift(weekly_ret, n=i, fill = NA, type='lag')]
+   }
+  
+  df2 <- df1 %>% filter(day == 1 | Date=='2018-5-31')
+  setDT(df2)
+  df2 <- na.omit(df2)
+  model_results = list()
+  
+
+  for (i in 1:4){
+     #f <- as.formula(paste('ret ~ ret_lead',paste(i), sep=""))
+     f <- as.formula(paste('weekly_ret_lead',paste(i), '~ weekly_ret', sep=""))
+     m = lm(f, data= df2)
+     model_results[[i]] = m
+  }
+  
+  # print table 14
+  stargazer(model_results, type='text', header=F,
+            title=paste(currencies2[j],' Weekly Return (', paste(min(df1$Date)),'-',paste(max(df1$Date)),')'),
+            omit.stat = c("LL","ser","f"),
+            covariate.labels =c('R(t)'),
+            dep.var.labels=c('R(t+1)', 'R(t+2)', 'R(t+3)', 'R(t+4)'),
+            omit='Constant')
+  
+  # Table 15 - bitcoin quantiles
+  apply_quantiles=function(x,include_in_quantiles=NULL,bins=5){
+
+  # if the argument is specified, we only include some data in hte calculate of breakpoints
+  if(is.null(include_in_quantiles)) include_in_quantiles=rep(TRUE,length(x))
+  # calculate quantiles (breakpoints)
+  quantiles=quantile(ifelse(include_in_quantiles,x,NA),
+                     probs=seq(0,1,length.out=bins+1),na.rm=TRUE)    
+  quantiles['0%']=min(x,na.rm=TRUE)-1 ; quantiles['100%']=max(x,na.rm=TRUE)+1
+  # cut the data a bit more 
+      return(cut(x,breaks=quantiles,labels=FALSE))
+  }
+  
+  # put return in quantiles
+  df2[,bins:=apply_quantiles(weekly_ret)]
+
+  # weekly formation return
+  df_info <- df2[, list(ret = mean(weekly_ret)), by=list(bins)] %>% arrange(bins)
+  
+  #df2 %>% filter(bins == 1)
+  model_results3 = list()
+  for (i in 1:4){
+   #f <- as.formula(paste('ret ~ ret_lead',paste(i), sep=""))
+   f <- as.formula(paste('weekly_ret_lead',paste(i), '~ weekly_ret', sep=""))
+   m = lm(f, data= df2 %>% filter(bins == 5))
+   model_results3[[i]] = m
+  }
+  
+  # printing table 15
+  stargazer(model_results3, type='text', header=F,
+            title=paste(currencies2[j],'Weekly Return Bin 5 (', paste(min(df1$Date)),'-',paste(max(df1$Date)),')'),
+            omit.stat = c("LL","ser","f"),
+            covariate.labels =c('R(t)'),
+            dep.var.labels=c('R(t+1)', 'R(t+2)', 'R(t+3)', 'R(t+4)'),
+            omit='Constant',
+            report = "vc*t", flip=TRUE)
+  
+  # Table 18 Quantiles
+  
+  
+  # Table 19
+  
+  # Table 20
+  
+  # Table 21
+  library(quantreg)
+  f <- as.formula(paste('weekly_ret_lead5 ~ weekly_ret', sep=""))
+  q20 = rq(f, data= df2, tau = 0.2)
+  q40 = rq(f, data= df2, tau = 0.4)
+  q60 = rq(f, data= df2, tau = 0.6)
+  q80 = rq(f, data= df2, tau = 0.8)
+  q100 = rq(f, data= df2, tau = 1)
+  stargazer(q20, q40, q60, q80, q100, type='text')
+  q <- rq(f,data=df2, tau = seq(0.2, 1, by = 0.2))
+  q
+  # Table 26, 27, 28
+}  
+print(plots)
+  #stargazer(model_results, type='html', title=paste(currencies[j],'Daily Return (', paste(min(df1$Date)),'-',paste(max(df1$Date)),')'))
+df_info
+```
+
+
+```{r}
+
+df2 %>% filter(bins == 1) %>% describe()
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
