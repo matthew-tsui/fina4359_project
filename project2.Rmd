@@ -155,7 +155,7 @@ for (j in 1:length(currencies2)){
   df1 <- mutate(day = wday(Date), .data= df1)
   df1 <- mutate(week = cut.Date(Date+1, breaks='1 week', label=FALSE),.data=df1)
   
-  df1
+  setDT(df1)
   df1[,Close_lead1w:=shift(Close, n=7, fill = NA, type='lead')]
   
   # set 1 week lag
@@ -164,6 +164,8 @@ for (j in 1:length(currencies2)){
   df1[,weekly_ret:=((Close/Close_lag1w)-1)]
   print(paste(mean(df1$weekly_ret, na.rm=TRUE) ,sd(df1$weekly_ret, na.rm=TRUE)))
   
+  setDT(df1)
+  df1
    for (i in 1:4){
     df1[, paste('weekly_ret_lead',paste(i),sep=""):=shift(weekly_ret, n=i*7, fill = NA, type='lead')]
     #df_weekly[, paste('ret_lag',paste(i),sep=""):=shift(weekly_ret, n=i, fill = NA, type='lag')]
@@ -176,7 +178,7 @@ for (j in 1:length(currencies2)){
   
 
   for (i in 1:4){
-     #f <- as.formula(paste('ret ~ ret_lead',paste(i), sep=""))
+     f <- as.formula(paste('ret ~ ret_lead',paste(i), sep=""))
      f <- as.formula(paste('weekly_ret_lead',paste(i), '~ weekly_ret', sep=""))
      m = lm(f, data= df2)
      model_results[[i]] = m
@@ -234,17 +236,17 @@ for (j in 1:length(currencies2)){
   
   # Table 20
   
-  # Table 21
-  library(quantreg)
-  f <- as.formula(paste('weekly_ret_lead5 ~ weekly_ret', sep=""))
-  q20 = rq(f, data= df2, tau = 0.2)
-  q40 = rq(f, data= df2, tau = 0.4)
-  q60 = rq(f, data= df2, tau = 0.6)
-  q80 = rq(f, data= df2, tau = 0.8)
-  q100 = rq(f, data= df2, tau = 1)
-  stargazer(q20, q40, q60, q80, q100, type='text')
-  q <- rq(f,data=df2, tau = seq(0.2, 1, by = 0.2))
-  q
+  # # Table 21
+  # library(quantreg)
+  # f <- as.formula(paste('weekly_ret_lead5 ~ weekly_ret', sep=""))
+  # q20 = rq(f, data= df2, tau = 0.2)
+  # q40 = rq(f, data= df2, tau = 0.4)
+  # q60 = rq(f, data= df2, tau = 0.6)
+  # q80 = rq(f, data= df2, tau = 0.8)
+  # q100 = rq(f, data= df2, tau = 1)
+  # stargazer(q20, q40, q60, q80, q100, type='text')
+  # q <- rq(f,data=df2, tau = seq(0.2, 1, by = 0.2))
+  # q
   # Table 26, 27, 28
 }  
 print(plots)
