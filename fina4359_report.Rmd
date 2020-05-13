@@ -1,11 +1,19 @@
 ---
-title: "R Notebook"
-output: html_document
+title: "FINA 4359 Project Report"
+output: pdf_document
 ---
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#install.packages('tinytex')
+#tinytex::install_tinytex()
+```
 
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
 ```{r, include=FALSE}
 library(portsort)
@@ -29,14 +37,10 @@ library(xtable)
 library(pracma)
 library(quantmod)
 library(quantreg)
-library(aTSA)
 ```
-
-
-```{r}
+```{r, echo=FALSE}
 # set scienfic notation to decimals
 options(scipen = 999)
-options(warn=-1)
 
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
@@ -47,10 +51,8 @@ df_rf$X = ymd(df_rf$X)
 names(df_rf)[names(df_rf) == "X"] <- "Date"
 df_rf <- subset(df_rf, Date >= as.Date('2011-1-1'))
 df_rf <- subset(df_rf, Date <= as.Date('2018-05-31'))
-#df_rf
 ```
-
-```{r}
+```{r, echo=FALSE}
 # Tweet data
 df_tweets <- read.csv('btc-tweets.csv')
 setDT(df_tweets)
@@ -68,64 +70,55 @@ for (i in 1:4){
 # weekly average for t-1 to t-4
 df_tweets[, avg:=sum(cum_lag1+cum_lag2+cum_lag3+cum_lag4,na.rm = TRUE)/4, by=list(Date)]
 
-#df_tweets[, avg:=sd(cum_lag1+cum_lag2+cum_lag3+cum_lag4)/4, by=list(Date)]
-df_tweets
 # calculate the tweet factor count(t) - average(count(t-1 to t-4))
-df_tweets[, tweet:=(cum-avg), by=list(Date)]
+df_tweets[, tweet:=ifelse(avg!=0,cum-avg, 0), by=list(Date)]
 setDT(df_tweets)
 
 # normalize to range -1 to 1
-#df_tweets[, tweet_norm:= BBmisc::normalize(avg,method = "range", range=c(-1,1))]
-df_tweets[, tweet_norm:= standardize(avg)]
+df_tweets[, tweet_norm:= BBmisc::normalize(avg,method = "range", range=c(-1,1))]
 #df_tweets[, factor_norm:= BBmisc::normalize(factor, method='range', range=c(min(df2$weekly_ret, na.rm=TRUE),max(df2$weekly_ret, na.rm=TRUE)))]
 #quantile(df_tweets$factor_norm)
 
 # extract useful fields
 df_tweets <- df_tweets[, list(Date, day, cum, avg, tweet_norm)]
 
-df_tweets
-qplot(data=df_tweets, x=Date, y=tweet_norm, geom = 'line')
+
+#qplot(data=df_tweets, x=Date, y=tweet_norm, geom = 'line')
 # qplot(data=df2 %>% filter(Date >= as.Date('2014-01-01')), x=Date, y=weekly_ret, geom = 'line')
 # min(df2$weekly_ret, na.rm=TRUE)
 ```
-
 ```{r}
-df_google = read.csv('trends_bitcoin_weekly_Globe_full.csv')
+df_google = read.csv('daily_gtrends.csv')
 df_google$Date = ymd(df_google$date)
-df_google <- subset(df_google, Date >= as.Date('2011-1-1'))
-df_google <- subset(df_google, Date <= as.Date('2018-12-31'))
+df_google <- subset(df_google, Date >= as.Date('2014-1-1'))
+df_google <- subset(df_google, Date <= as.Date('2018-05-31'))
 df_google <- df_google %>% mutate(day = wday(Date, week_start = getOption("lubridate.week.start", 7)))
 df_google <- df_google %>% mutate(week = cut.Date(Date, breaks='1 week', label=FALSE))
 #df_tweets <- df_tweets[, cum:=cumsum(Count)] %>% filter(day == 1)
 df_google <- df_google %>% group_by(week) %>% mutate(cum = cumsum(bitcoin)) %>% filter(day == 1)
 
 setDT(df_google)
-#df_google <- df_google[,bitcoin:=ifelse(bitcoin==0,0,log(bitcoin))]
-df_google
 for (i in 1:4){
   df_google[, paste('cum_lag',paste(i),sep=''):= shift(bitcoin, n=i, fill=NA, type='lag')]
 }
 df_google[, avg:=sum(cum_lag1+cum_lag2+cum_lag3+cum_lag4,na.rm = TRUE)/4, by=list(Date)]
 
 # calculate the tweet factor count(t) - average(count(t-1 to t-4))
-df_google[, google:=cum-avg, by=list(Date)]
+df_google[, google:=ifelse(avg!=0,cum-avg, 0), by=list(Date)]
 setDT(df_google)
-df_google
+
 # normalize to range -1 to 1
-#df_google[, google_norm:= BBmisc::normalize(google,method = "standardize")]
+df_google[, google_norm:= BBmisc::normalize(avg,method = "range", range=c(-1,1))]
+#df_google[, factor_norm:= BBmisc::normalize(factor, method='range', range=c(min(df2$weekly_ret, na.rm=TRUE),max(df2$weekly_ret, na.rm=TRUE)))]
 
-
-#df_google <- df_google[, google_norm:= BBmisc::normalize(google,method = "range", range=c(-1,1))]
-df_google <- df_google[, google_norm:= standardize(google)]
-qplot(data=df_google, x=Date, y=google_norm,geom = 'line')
-#qplot(data=dfw, x=Date, y=weekly_ret,geom = 'line')
-#standardize(df_google$google)
-describe(df_google$google_norm)
-
-#df_google <- df_google[, google:= standardize(df_google$google)]
-#adf.test(df_google$google)
-#adf.test(df_tweets$tweet_norm)
+#library(gtrendsR)
+#g = gtrends('bitcoin', time='2011-01-01 2018-05-31')
+#plot(g)
+#qplot(data=df_google, x=Date, y=google_norm, geom = 'line')
+#describe(df_google$google_norm)
 ```
+
+
 
 ```{r}
 # coin data
@@ -141,16 +134,41 @@ df_btc2 <- read.csv('coindesk-btc-price.csv')
 df_btc2
 df_btc2$Date = ymd(df_btc2$Date) 
 names(df_btc2)[names(df_btc2) == "Price"] <- "Close"
+# rename Price to column
+#df_btc <- df_btc %>% rename(Close = Price)
+# names(df_btc)[names(df_btc) == "Price"] <- "Close"
+# parse date
+
+# df_btc$Date = mdy(df_btc$Date) 
+# #df_btc$Date = ymd(df_btc$Date) 
+# setDT(df_btc)
+# #qplot(Date,ret*100, data = df_btc, geom="line") + scale_x_date(labels = date_format("%m-%Y")) + ylim(min(df1$ret*100),max(df1$ret*100)+100)
+# df_btc[, Close:=as.numeric(gsub(',','',Close))]
+# df_btc[, Open:=as.numeric(gsub(',','',Open))]
+# df_btc[, High:=as.numeric(gsub(',','',High))]
+# df_btc[, Low:=as.numeric(gsub(',','',Low))]
+# df_btc[, Currency:='bitcoin']
+# df_btc <- df_btc[,!c('Change..','Vol.')]
+# df_btc
+# df_btc <- subset(df_btc, Date >= as.Date('2011-1-1'))
+# #df1 <- join(df, df_btc, by=c('Currency'))
+# #df1 %>% filter(Currency=='bitcoin') %>% arrange(Date)
+# df1
+# describe(df_btc)
+
+#is.na(df1[,Date])
+# parse the date to date format
+
 df_btc <- df_btc2 %>% arrange(Date)
 df_btc <- subset(df_btc, Date >= as.Date('2011-1-1'))
-#df_btc
+df_btc
 
 
 ```
 ```{r, results='asis'}
 # table a.1 shape of different currencies
 currencies2 = c('bitcoin')
-#currencies2 = c('bitcoin', 'ripple', 'ethereum', 'binance-coin' ,'eos','tether', 'bitcoin-cash', 'stellar', 'litecoin', 'cardano')
+currencies2 = c('bitcoin', 'ripple', 'ethereum', 'binance-coin' ,'eos','tether', 'bitcoin-cash', 'stellar', 'litecoin', 'cardano')
 #currencies3 = c('binance-coin' ,'eos','tether', 'bitcoin-cash', 'stellar', 'litecoin','ethereum', 'cardano')
 plots = list()
 
@@ -187,9 +205,9 @@ for (j in 1:length(currencies2)){
 
   bottom10 = dfm %>%  arrange(monthly.returns) %>% select(Month, Losses) %>% head(10)
   
-  #addtorow <- list()
-  #addtorow$pos <- list(0)
-  #addtorow$command <- c(paste("\\hline \\\\ [-1.8ex]& Top 10 -", currencies2[j],"\\centering & \\\\ \n \\hline \\hline& Month & Losses \\\\"))
+  addtorow <- list()
+  addtorow$pos <- list(0)
+  addtorow$command <- c(paste("\\hline \\\\ [-1.8ex]& Top 10 -", currencies2[j],"\\centering & \\\\ \n \\hline \\hline& Month & Losses \\\\"))
   
   display <- cbind(top10, bottom10)
   display
@@ -199,17 +217,14 @@ for (j in 1:length(currencies2)){
 
   #print(xtable(bottom10))
   
-  dfd<-as.data.table(dfd)
-  daily = as.data.frame(psych::describe(dfd$daily.returns))
-  t <- dfd$daily.returns %>% t.test
+  daily = as.data.frame(psych::describe(dfd))
+  t <- dfd %>% t.test
   daily[['se']] = t$statistic[[1]]
-  
-  dfw<-as.data.table(dfw)
-  weekly = as.data.frame(psych::describe(dfw$weekly.returns))
-  t <- dfw$weekly.returns %>% t.test
+
+  weekly = as.data.frame(psych::describe(dfw))
+  t <- dfw %>% t.test
   weekly[['se']] = t$statistic[[1]]
 
-  dfm<-as.data.table(dfm)
   monthly = as.data.frame(psych::describe(dfm$monthly.returns))
   t <- dfm$monthly.returns %>% t.test
   monthly[['se']] = t$statistic[[1]]
@@ -220,22 +235,14 @@ for (j in 1:length(currencies2)){
   # format table
   setDT(final, keep.rownames = TRUE)
   final <- final[,list(Mean=paste0(round(mean*100,2),'%'), SD=paste0(round(sd*100,2),'%'), T_Stat=round(se,2), Skewness=round(skew,2), Kurtosis=round(kurtosis,2)), by=list(rn)]
-  
-  final
+
   # formate index
   final[,1] <- c('Daily','Weekly','Monthly')
 
   # print results
-  stargazer(final, type='html', summary=FALSE, title= paste(currencies2[j],'Log Return'))
+  stargazer(final, summary=FALSE, title= paste(currencies2[j],'Log Return'))
 }
-dfw
-names(dfw) <- c('Date', 'weekly_ret')
-dfw= data.table(dfw, key=c('Date'))
-
-for (i in 1:7){
-    dfw <-dfw[, paste('weekly_ret_lead',paste(i),sep=""):=shift(weekly_ret, n=i, fill = NA, type='lead')]
-}
-dfw
+#options(warn=-1)
 ```
 
 
@@ -309,7 +316,6 @@ for (j in 1:length(currencies2)){
   names(model_results1)
   
   # Table 14 - bitcoin weekly
-
   df1 <- mutate(day = wday(Date), .data= df1)
   df1 <- mutate(week = cut.Date(Date+1, breaks='1 week', label=FALSE),.data=df1)
   
@@ -324,11 +330,10 @@ for (j in 1:length(currencies2)){
   
   setDT(df1)
   df1
-  
-  for (i in 1:7){
+   for (i in 1:7){
     df1[, paste('weekly_ret_lead',paste(i),sep=""):=shift(weekly_ret, n=i*7, fill = NA, type='lead')]
     #df_weekly[, paste('ret_lag',paste(i),sep=""):=shift(weekly_ret, n=i, fill = NA, type='lag')]
-  }
+   }
   
   df2 <- df1 %>% filter(day == 1 | Date=='2018-5-31')
   setDT(df2)
@@ -336,7 +341,7 @@ for (j in 1:length(currencies2)){
   
 
   for (i in 1:4){
-     #f <- as.formula(paste('ret ~ ret_lead',paste(i), sep=""))
+     f <- as.formula(paste('ret ~ ret_lead',paste(i), sep=""))
      f <- as.formula(paste('weekly_ret_lead',paste(i), '~ weekly_ret', sep=""))
      m = lm(f, data= df2)
      model_results[[i]] = m
@@ -355,57 +360,85 @@ for (j in 1:length(currencies2)){
     table26 <- df2
   }
   
+  # Table 15 - bitcoin quantiles
+  apply_quantiles=function(x,include_in_quantiles=NULL,bins=5){
+
+  # if the argument is specified, we only include some data in hte calculate of breakpoints
+  if(is.null(include_in_quantiles)) include_in_quantiles=rep(TRUE,length(x))
+  # calculate quantiles (breakpoints)
+  
+  quantiles=quantile(ifelse(include_in_quantiles,x,NA),
+                     probs=seq(0,1,length.out=bins+1),na.rm=TRUE)
+  
+  quantiles['0%']=min(x,na.rm=TRUE) ; quantiles['100%']=max(x,na.rm=TRUE)
+  # cut the data a bit more 
+      return(cut(x,breaks=quantiles,labels=FALSE))
+  }
+  
+  # # put return in quantiles
+  # df2[,bins:=apply_quantiles(weekly_ret)]
+
+  # 
+  # # weekly formation return
+  # df_info <- df2[, list(ret = mean(weekly_ret)), by=list(bins)] %>% arrange(bins)
+  # 
+  # model_results3 = list()
+  # for (i in 1:4){
+  #  #f <- as.formula(paste('ret ~ ret_lead',paste(i), sep=""))
+  #  f <- as.formula(paste('weekly_ret_lead',paste(i), '~ weekly_ret', sep=""))
+  #  m = lm(f, data= df2 %>% filter(bins == 1))
+  #  model_results3[[i]] = m
+  # }
+  
+  # printing table 15
+  # stargazer(model_results3, header=F,
+  #           title=paste(currencies2[j],'Weekly Return Bin 5 (', paste(min(df1$Date)),'-',paste(max(df1$Date)),')'),
+  #           omit.stat = c("LL","ser","f"),
+  #           covariate.labels =c('R(t)'),
+  #           dep.var.labels=c('R(t+1)', 'R(t+2)', 'R(t+3)', 'R(t+4)'),
+  #           omit='Constant',
+  #           report = "vc*t", flip=TRUE)
+  
+  # setDT(df2)
+  # portfolio <- df2[,list(ew=mean(weekly_ret)), by=list(Date,bins)] 
+  # portfolio %>% filter(bins == 5)
+  # df2
+  # Table 19 Google search Bitcoin
+  
+  # Table 20 Google search Bitcoin by quantiles
+  
+  # # Table 21
+  # library(quantreg)
+  # f <- as.formula(paste('weekly_ret_lead5 ~ weekly_ret', sep=""))
+  # q20 = rq(f, data= df2, tau = 0.2)
+  # q40 = rq(f, data= df2, tau = 0.4)
+  # q60 = rq(f, data= df2, tau = 0.6)
+  # q80 = rq(f, data= df2, tau = 0.8)
+  # q100 = rq(f, data= df2, tau = 1)
+  # stargazer(q20, q40, q60, q80, q100, type='text')
+  # q <- rq(f,data=df2, tau = seq(0.2, 1, by = 0.2))
+  # q
+  summary(df2$weekly_ret)
+    
+  # Table 28 bitcoin hack and bitcoi
+  
 }  
-
+# print(plots)
+#   #stargazer(model_results, type='html', title=paste(currencies[j],'Daily Return (', paste(min(df1$Date)),'-',paste(max(df1$Date)),')'))
+# df_info
+# 
+# breakpoints = c(-1,-0.02529059,0.01772206, 0.07529570, 0.2744, 1)
+# df3 = df2[,bins:=apply_quantiles(weekly_ret)]
+# df3 = df2[, bins2:=cut(df2$weekly_ret, breakpoints, label=FALSE)]
+# #df3[, list(ret = mean(weekly_ret)), by=list(bins)] %>% arrange(bins)
+# quantile(df2$weekly_ret, na.rm=TRUE)
 table26
-```
-```{r}
-apply_quantiles=function(x,include_in_quantiles=NULL,bins=10){
-
-          # if the argument is specified, we only include some data in hte calculate of breakpoints
-          if(is.null(include_in_quantiles)) include_in_quantiles=rep(TRUE,length(x))
-          # calculate quantiles (breakpoints)
-          quantiles=quantile(ifelse(include_in_quantiles,x,NA),
-                             probs=seq(0,1,length.out=bins+1),na.rm=TRUE)    
-          quantiles['0%']=min(x,na.rm=TRUE) ; quantiles['100%']=max(x,na.rm=TRUE)
-          print(quantiles)
-          # cut the data a bit more 
-              #return(cut(x,breaks=quantiles,labels=FALSE))
-          return(cut(x,breaks=quantiles,labels=FALSE))
-}
-dfw
-
-
-#dfw[,bins:=apply_quantiles(dfw$weekly_ret, bins=5),by=list(Date)]
-#table26[,bins:=apply_quantiles(table26$weekly_ret, bins=5),by=list(Date)]
-
-dfw <-table26
-dfw$bins <- apply_quantiles(dfw$weekly_ret, bins=5)
-
-for (i in 1:4){
-   #f <- as.formula(paste('ret ~ ret_lead',paste(i), sep=""))
-  
-   f <- as.formula(paste('weekly_ret_lead',paste(i), '~ weekly_ret', sep=""))
-  
-   model = lm(f, data= dfw)
-   sum <- summary(model)
-   print(i)
-   print(sum)
-   
-}
-
-dfw %>% arrange(bins)
-dfw %>% group_by(bins) %>% summarise(avg = n())
-dfw$bins2 <- cut(dfw$weekly_ret, breaks = c(-2, -0.0256, 0.0184, 0.0759, 0.27,2), labels = FALSE)
-dfw
 ```
 
 ```{r}
 #qs = c(0.2,0.4, 0.6, 0.8, 1)
-qs = c(0, 0.2, 0.4, 0.6, 0.8)
+qs = c(0.1,0.2, 0.4, 0.6, 0.7)
 quant_summary = list()
-kuantile(dfw$weekly_ret, probs = seq(0, 1, .2), na.rm = TRUE)
-
 # bitcoin momentum by groups
 for (i in 1:4){
    #f <- as.formula(paste('ret ~ ret_lead',paste(i), sep=""))
@@ -417,8 +450,7 @@ for (i in 1:4){
    #loop though 4 quantiles
    for (j in 1:5){
      # calculate the sd
-     sd = as.numeric(sum[[j]]$coefficients[2,'Value'], na.rm=TRUE)/sd(quantreg$model$weekly_ret)
-     as.numeric(sum[[j]]$coefficients[2,'Value'], na.rm=TRUE)
+     sd = sd(quantreg$model$google_norm)/as.numeric(sum[[j]]$coefficients[2,'Value'], na.rm=TRUE)
      quant_summary[[j]] = c(sum[[j]]$coefficients[2,], SD=sd)
    }
    
@@ -452,7 +484,7 @@ for (i in 1:4){
     names(report) <- c('Rank', paste(paste('R(t)+'),i,sep=""),'T-Stat','Sharpe Ratio' )
     print(xtable(report, summary=FALSE))
     report
-    stargazer(report, type="text", main=paste('R(t)+',i,sep=""), summary=FALSE, rownames = FALSE)
+    #stargazer(report, type="html", main=paste('R(t)+',i,sep=""), summary=FALSE, rownames = FALSE)
 
 }
 ```
@@ -460,28 +492,15 @@ for (i in 1:4){
 
 ```{r results='asis'}
 # Table 26, 27 Bitcoin twitter
-#dfw <- dfw[, weekly_ret:= BBmisc::normalize(weekly_ret,method = "range", range=c(-1,1))]
-for (i in 1:7){
-    dfw[, paste('weekly_ret_lead',paste(i),sep=""):=shift(weekly_ret, n=i, fill = NA, type='lead')]
-    #df_weekly[, paste('ret_lag',paste(i),sep=""):=shift(weekly_ret, n=i, fill = NA, type='lag')]
-}
 
 dft<-merge(dfw, df_tweets, by='Date')
-dfw
-quant_summary = list()
+
+
 model_results3 = list()
 #qs = c(0.17, 0.33, 0.5, 0.67, 0.83)
-#qs = c(0,0.2, 0.4, 0.6, 0.8)
+qs = c(0,0.2, 0.4, 0.6, 0.8)
 qs = c(0.2,0.4, 0.6, 0.8, 1)
 
-# dft <- dft[, weekly_ret_lead1:= BBmisc::normalize(weekly_ret_lead1,method = "range", range=c(-1,1))]
-# dft <- dft[, weekly_ret_lead2:= BBmisc::normalize(weekly_ret_lead2,method = "range", range=c(-1,1))]
-# dft <- dft[, weekly_ret_lead3:= BBmisc::normalize(weekly_ret_lead3,method = "range", range=c(-1,1))]
-# dft <- dft[, weekly_ret_lead4:= BBmisc::normalize(weekly_ret_lead4,method = "range", range=c(-1,1))]
-# dft <- dft[, weekly_ret_lead5:= BBmisc::normalize(weekly_ret_lead5,method = "range", range=c(-1,1))]
-# dft <- dft[, weekly_ret_lead6:= BBmisc::normalize(weekly_ret_lead6,method = "range", range=c(-1,1))]
-# dft <- dft[, weekly_ret_lead7:= BBmisc::normalize(weekly_ret_lead7,method = "range", range=c(-1,1))]
-  
  for(i in 1:7){
    #f <- as.formula(paste('ret ~ ret_lead',paste(i), sep=""))
    f <- as.formula(paste('weekly_ret_lead',paste(i), '~ tweet_norm', sep=""))
@@ -491,8 +510,8 @@ qs = c(0.2,0.4, 0.6, 0.8, 1)
    model_results3[[i]] = m
 }
 
-stargazer(model_results3, type='text', header=F,
-            title=paste(currencies2[j],'Weekly Return Twitter (', paste(min(dft$Date)),'-',paste(max(dft$Date)),')'),
+stargazer(model_results3, header=F,
+            title=paste(currencies2[j],'Twitter Bitcoin Weekly Return (', paste(min(dft$Date)),'-',paste(max(df2$Date)),')'),
             omit.stat = c("LL","ser","f"),
             covariate.labels =c('Twitter(t)'),
             dep.var.labels=c('R(t+1)', 'R(t+2)', 'R(t+3)', 'R(t+4)','R(t+5)','R(t+6)','R(t+7)'),
@@ -501,19 +520,13 @@ stargazer(model_results3, type='text', header=F,
 ggplot(dft, aes(x=Date)) + 
   geom_line(aes(y = dft$weekly_ret), color = "darkred") + 
   geom_line(aes(y = dft$tweet_norm), color="blue", linetype="twodash")
-
-
-quantile(dft$tweet_norm)
+table26
+dft
 ```
-```{r}
-
-```
-
-
+# Table 27
 ```{r results='asis'}
-#kuantile(dft$tweet_norm)
+
 # table 27 tweet by quantiles
-qs = c(0.2, 0.4, 0.6, 0.8,1)
 for (i in 1:4){
    #f <- as.formula(paste('ret ~ ret_lead',paste(i), sep=""))
    f <- as.formula(paste('weekly_ret_lead',paste(i), '~ tweet_norm', sep=""))
@@ -525,20 +538,24 @@ for (i in 1:4){
    #loop though 4 quantiles
    for (j in 1:5){
      # calculate the sd
-     sd = as.numeric(sum[[j]]$coefficients[2,'Value'], na.rm=TRUE)/sd(quantreg$model$weekly_ret)
+     sd = sd(quantreg$model$tweet_norm)
      quant_summary[[j]] = c(sum[[j]]$coefficients[2,], SD=sd)
+     # row = list()
+     # for (k in 1:4){
+     #   row[[k]] <- sum[[j]]$coefficients[2, k]
+     # }
+     # quant_summary[[j]] <- row
    }
+   
     #data.frame(c(sum[[j]]$coefficients[2,], sd=-1 ))
-    # eval(paste0('quantreg$model$weekly_ret_lead',i))
-    
+
     report = data.frame(quant_summary)
-    #colnames(report)
+    
     # attach column names
     colnames(report) <- qs
 
     # transpose the df
     report <- as.data.frame(t(as.matrix(report)))
-    #colnames(report)
     setDT(report ,keep.rownames = TRUE)
     
     #display_names <- names(report)
@@ -575,29 +592,21 @@ for (i in 1:4){
 # dft[,bins:=apply_quantiles(tweet_norm)]
 #dft[, list(ret = mean(factor_norm)), by=list(bins)] %>% arrange(bins)
 ```
-
 ```{r}
-# google 2011-2019
-#table26
+# google
+table26
 # dfw <- data.frame(dfw, Date=index(dfw))
 # dfw[,weekly_ret:=weekly.returns, by=list(Date)]
 # dfw
-#df_google <- df_google[, google_norm:= BBmisc::normalize(google,method = "range", range=c(-1,1))]
-
-
-#dfw <- dfw[, weekly_ret:= standardize(weekly_ret)]
-for (i in 1:7){
-    dfw[, paste('weekly_ret_lead',paste(i),sep=""):=shift(weekly_ret, n=i, fill = NA, type='lead')]
-    #df_weekly[, paste('ret_lag',paste(i),sep=""):=shift(weekly_ret, n=i, fill = NA, type='lag')]
-}
-
 dft<-merge(dfw, df_google, by='Date')
 quant_summary = list()
 model_results4 = list()
+#qs = c(0.17, 0.33, 0.5, 0.67, 0.83)
+#qs = c(0,0.2, 0.4, 0.6, 0.8)
+#qs = c(0.2,0.4, 0.6, 0.8, 1)
 
-for(i in 1:7){
+ for(i in 1:7){
    #f <- as.formula(paste('ret ~ ret_lead',paste(i), sep=""))
-   #f <- as.formula(paste('google_norm~ ','weekly_ret_lead',paste(i), sep=""))
    f <- as.formula(paste('weekly_ret_lead',paste(i), '~ google_norm', sep=""))
    #f <- as.formula(paste('weekly_ret_lead4 ~ tweet_norm', sep=""))
    
@@ -605,103 +614,18 @@ for(i in 1:7){
    model_results4[[i]] = m
 }
 #quantile(dft$google_norm)
-stargazer(model_results4, header=F,#type='text',
+stargazer(model_results4, header=F, type='text',
             title=paste('Google Search - Bitcoin (', paste(min(dft$Date)),'-',paste(max(dft$Date)),')'),
             omit.stat = c("LL","ser","f"),
             covariate.labels =c('Google(t)'),
             dep.var.labels=c('R(t+1)', 'R(t+2)', 'R(t+3)', 'R(t+4)','R(t+5)','R(t+6)','R(t+7)'),
             omit='Constant',
             report = "vc*pt", flip=TRUE)
+dft
 ggplot(dft, aes(x=Date)) + 
   geom_line(aes(y = dft$weekly_ret), color = "darkred") + 
   geom_line(aes(y = dft$google_norm), color="blue", linetype="twodash")
   #geom_line(aes(y = dft$tweet_norm), color="green", linetype="twodash") 
-
-```
-```{r}
-#kuantile(dft$tweet_norm)
-# table 27 Google by quantiles
-#qs = c(0.2, 0.4, 0.6, 0.8,1)
-qs = c(0, 0.2, 0.4, 0.6, 0.8)
-
-# since 2013
-#df_google <- subset(df_google, Date >= as.Date('2013-1-1'))
-for (i in 1:4){
-   #f <- as.formula(paste('ret ~ ret_lead',paste(i), sep=""))
-   f <- as.formula(paste('weekly_ret_lead',paste(i), '~ google_norm', sep=""))
-   #f <- as.formula(paste('weekly_ret_lead4 ~ tweet_norm', sep=""))
-   
-   quantreg = rq(f, tau = qs, data= dft)
-   sum = summary(quantreg, se='boot')
-   
-   #loop though 4 quantiles
-   for (j in 1:5){
-     # calculate the sd
-     sd = as.numeric(sum[[j]]$coefficients[2,'Value'], na.rm=TRUE)/sd(quantreg$model$weekly_ret)
-     quant_summary[[j]] = c(sum[[j]]$coefficients[2,], SD=sd)
-   }
-    #data.frame(c(sum[[j]]$coefficients[2,], sd=-1 ))
-    # eval(paste0('quantreg$model$weekly_ret_lead',i))
-    
-    report = data.frame(quant_summary)
-    #colnames(report)
-    # attach column names
-    colnames(report) <- qs
-
-    # transpose the df
-    report <- as.data.frame(t(as.matrix(report)))
-    #colnames(report)
-    setDT(report ,keep.rownames = TRUE)
-    
-    #display_names <- names(report)
-    #display_names[[2]] = paste(paste('R(t)+'),i,sep="")
-    names(report) <- c('rn','Value','se', 't', 'pr', 'sd')
-    #report
-    # round digits
-    report[,Value:=Value*100, by=list(rn)]
-    roundoff <- function(x) round(as.numeric(x),2)
-    report[,2:length(names(report))] <- lapply(report[,2:length(names(report))],roundoff)
-    
-    # add *** to indicate confidence level
-    report[, Value_s:= 
-             ifelse(pr < 0.01,paste(paste(Value),'***',sep=""), 
-                    ifelse(pr < 0.05,paste(paste(Value),'**',sep=""), 
-                           ifelse(pr < 0.1,paste(paste(Value),'*',sep=""), paste(Value)))), by=list(rn)]
-    
-    report <- report[,list(Value_s,t,sd), by=list(rn)]
-    names(report) <- c('Rank', paste(paste('R(t)+'),i,sep=""),'T-Stat','Sharpe Ratio' )
-    print(xtable(report, summary=FALSE))
-    #(report)
-    #stargazer(report, type="html", main=paste('R(t)+',i,sep=""), summary=FALSE, rownames = FALSE)
-
-}
-```
-```{r}
-df_google = read.csv('trends_bitcoin_hack_weekly_Globe_fullv2.csv')
-df_google$Date = ymd(df_google$date)
-df_google <- subset(df_google, Date >= as.Date('2011-1-1'))
-df_google <- subset(df_google, Date <= as.Date('2018-12-31'))
-df_google <- df_google %>% mutate(day = wday(Date, week_start = getOption("lubridate.week.start", 7)))
-df_google <- df_google %>% mutate(week = cut.Date(Date, breaks='1 week', label=FALSE))
-#df_tweets <- df_tweets[, cum:=cumsum(Count)] %>% filter(day == 1)
-df_google <- df_google %>% group_by(week) %>% mutate(cum = cumsum(bitcoin)) %>% filter(day == 1)
-
-setDT(df_google)
-#df_google <- df_google[,bitcoin:=ifelse(bitcoin==0,0,log(bitcoin))]
-df_google
-for (i in 1:4){
-  df_google[, paste('cum_lag',paste(i),sep=''):= shift(bitcoin, n=i, fill=NA, type='lag')]
-}
-df_google[, avg:=sum(cum_lag1+cum_lag2+cum_lag3+cum_lag4,na.rm = TRUE)/4, by=list(Date)]
-
-# calculate the tweet factor count(t) - average(count(t-1 to t-4))
-df_google[, google:=cum-avg, by=list(Date)]
-setDT(df_google)
-
-#df_google <- df_google[, google_norm:= BBmisc::normalize(google,method = "range", range=c(-1,1))]
-df_google <- df_google[, google_norm:= standardize(bitcoin)]
-qplot(data=df_google, x=Date, y=google_norm,geom = 'line')
-describe(df_google$google_norm)
 ```
 
 Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
@@ -709,3 +633,15 @@ Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by press
 When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
 
 The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=TRUE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
