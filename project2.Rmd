@@ -271,23 +271,23 @@ apply_quantiles=function(x,include_in_quantiles=NULL,bins=10){
           return(cut(x,breaks=quantiles,labels=FALSE))
 }
 
-bitcoin_weekly <-table26
-bitcoin_weekly$bins <- apply_quantiles(bitcoin_weekly$weekly_ret, bins=5)
-
-for (i in 1:4){
-   #f <- as.formula(paste('ret ~ ret_lead',paste(i), sep=""))
-   f <- as.formula(paste('weekly_ret_lead',paste(i), '~ weekly_ret', sep=""))
-   model = lm(f, data= bitcoin_weekly %>% filter(bins == 5))
-   sum <- summary(model)
-   print(i)
-   print(sum)
-   
-}
-# dfw %>% filter(bins == 5)
-# dfw %>% arrange(bins)
-# dfw %>% group_by(bins) %>% summarise(avg = n())
-# #dfw$bins2 <- cut(dfw$weekly_ret, breaks = c(-2, -0.0256, 0.0184, 0.0759, 0.27,2), labels = FALSE)
-#bitcoin_weekly %>% arrange(weekly_ret)
+# bitcoin_weekly <-table26
+# bitcoin_weekly$bins <- apply_quantiles(bitcoin_weekly$weekly_ret, bins=5)
+# 
+# for (i in 1:4){
+#    #f <- as.formula(paste('ret ~ ret_lead',paste(i), sep=""))
+#    f <- as.formula(paste('weekly_ret_lead',paste(i), '~ weekly_ret', sep=""))
+#    model = lm(f, data= bitcoin_weekly %>% filter(bins == 5))
+#    sum <- summary(model)
+#    print(i)
+#    print(sum)
+#    
+# }
+# # dfw %>% filter(bins == 5)
+# # dfw %>% arrange(bins)
+# # dfw %>% group_by(bins) %>% summarise(avg = n())
+# # #dfw$bins2 <- cut(dfw$weekly_ret, breaks = c(-2, -0.0256, 0.0184, 0.0759, 0.27,2), labels = FALSE)
+# #bitcoin_weekly %>% arrange(weekly_ret)
 ```
 
 # Table 15 bitcoin returns by groups
@@ -295,10 +295,8 @@ for (i in 1:4){
 quant_summary = list()
 cols = c('R(t+1)','R(t+2)','R(t+3)','R(t+4)')
 
-names(dfw)[names(dfw) == "weekly.returns"] <- "weekly_ret"
-names(dfw)[names(dfw) == "index"] <- "Date"
-
-
+#names(dfw)[names(dfw) == "weekly.returns"] <- "weekly_ret"
+#names(dfw)[names(dfw) == "index"] <- "Date"
 
 # bitcoin_weekly <- dfw
 # for (i in 1:7){
@@ -323,7 +321,7 @@ for (i in 1:5){
   
   single_bin = data.frame(quant_summary)
   colnames(single_bin) <- cols
-  single_bin <- as.data.frame(t(as.matrix(single_bin)))
+  #single_bin <- as.data.frame(t(as.matrix(single_bin)))
   setDT(single_bin,keep.rownames = TRUE)
   
   # add *** according to their p value
@@ -337,12 +335,13 @@ for (i in 1:5){
 
   #names(single_bin) <- c('rn','Value','se', 't', 'pr', 'sd')
   
-  stargazer(single_bin, type='text', summary=FALSE, title=paste('Bitcoin Weekly Momentum by Groups - bin',i))
+  stargazer(single_bin, #type='text',
+            summary=FALSE, title=paste('Bitcoin Weekly Momentum by Groups - bin',i))
 }
 ```
 
 
-```{r}
+```{r, include=FALSE}
 qs = c(0.2,0.4, 0.6, 0.8, 1)
 qs = c(0, 0.2, 0.4, 0.6, 0.8)
 quant_summary = list()
@@ -499,7 +498,7 @@ for (i in 1:5){
   
   single_bin = data.frame(quant_summary)
   colnames(single_bin) <- cols
-  single_bin <- as.data.frame(t(as.matrix(single_bin)))
+  #single_bin <- as.data.frame(t(as.matrix(single_bin)))
   setDT(single_bin,keep.rownames = TRUE)
   
   # add *** according to their p value
@@ -513,12 +512,13 @@ for (i in 1:5){
 
   #names(single_bin) <- c('rn','Value','se', 't', 'pr', 'sd')
   
-  stargazer(single_bin, type='text', summary=FALSE, title=paste('Bitcoin Twitter by Groups - bin',i))
+  stargazer(single_bin,# type='text', 
+            summary=FALSE, title=paste('Bitcoin Twitter by Groups - bin',i))
 }
 ```
 
 
-```{r results='asis'}
+```{r results='asis', include=FALSE}
 # table 27 tweet by quantiles
 qs = c(0.2, 0.4, 0.6, 0.8,1)
 for (i in 1:4){
@@ -658,7 +658,7 @@ for (i in 1:5){
   
   single_bin = data.frame(quant_summary)
   colnames(single_bin) <- cols
-  single_bin <- as.data.frame(t(as.matrix(single_bin)))
+  #single_bin <- as.data.frame(t(as.matrix(single_bin)))
   setDT(single_bin,keep.rownames = TRUE)
   
   # add *** according to their p value
@@ -672,7 +672,8 @@ for (i in 1:5){
 
   #names(single_bin) <- c('rn','Value','se', 't', 'pr', 'sd')
   
-  stargazer(single_bin, type='text', summary=FALSE, title=paste('Bitcoin Google Search by Groups - bin',i))
+  stargazer(single_bin, #type='text', 
+            summary=FALSE, title=paste('Bitcoin Google Search by Groups - bin',i))
 }
 
 ```
@@ -709,7 +710,8 @@ for (i in 1:5){
 
   #names(single_bin) <- c('rn','Value','se', 't', 'pr', 'sd')
   
-  stargazer(single_bin, type='text', summary=FALSE, title=paste('Bitcoin Google Search by Groups (since 2013) - bin',i))
+  stargazer(single_bin, #type='text', 
+            summary=FALSE, title=paste('Bitcoin Google Search by Groups (since 2013) - bin',i))
 }
 ```
 
@@ -803,7 +805,7 @@ for(i in 1:7){
    model_results4[[i]] = m
 }
 
-stargazer(model_results4, header=F,type='text',
+stargazer(model_results4, header=F,#type='text',
             title=paste('Google Search - Bitcoin Hack to Bitcoin search (', paste(min(dft$Date)),'-',paste(max(dft$Date)),')'),
             omit.stat = c("LL","ser","f"),
             covariate.labels =c('Google(t)'),
@@ -833,7 +835,7 @@ for (i in 1:5){
   
   single_bin = data.frame(quant_summary)
   colnames(single_bin) <- cols
-  single_bin <- as.data.frame(t(as.matrix(single_bin)))
+  #single_bin <- as.data.frame(t(as.matrix(single_bin)))
   setDT(single_bin,keep.rownames = TRUE)
   
   # add *** according to their p value
@@ -847,7 +849,8 @@ for (i in 1:5){
 
   #names(single_bin) <- c('rn','Value','se', 't', 'pr', 'sd')
   
-  stargazer(single_bin, type='text', summary=FALSE, title=paste('Bitcoin Hack by Groups - bin',i))
+  stargazer(single_bin, #type='text',
+             summary=FALSE, title=paste('Bitcoin Hack by Groups - bin',i))
 }
 
 ```
